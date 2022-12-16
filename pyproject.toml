@@ -1,0 +1,9 @@
+[project]
+name = "audiologic"
+version = "0.1.0"
+description = "Python utilities to process and predict on audio attributes"
+authors = [
+    {name = "Ty Martz", email="jacksontmartz@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
