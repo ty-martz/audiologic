@@ -1,6 +1,7 @@
 import whisper
 import io
 import librosa
+import numpy as np
 from pydub import AudioSegment
 from urllib.request import urlopen
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -54,10 +55,10 @@ def cv_test(model, data, labels, cv=5):
     crossval = cross_validate(model, data, labels, cv=cv, scoring=['neg_mean_absolute_error', 'neg_root_mean_squared_error', 'r2'], n_jobs=-1)
     print('----')
     print('CV Output:')
-    print(f"Time to Fit: {crossval['fit_time']}")
-    print(f"MAE: {-crossval['test_neg_root_mean_squared_error']}")
-    print(f"RMSE: {-crossval['test_neg_mean_absolute_error']}")
-    print(f"R-Squared: {crossval['test_r2']}")
+    print(f"Time to Fit: {np.mean(crossval['fit_time'])}")
+    print(f"MAE: {np.mean(-crossval['test_neg_root_mean_squared_error'])}")
+    print(f"RMSE: {np.mean(-crossval['test_neg_mean_absolute_error'])}")
+    print(f"R-Squared: {np.mean(crossval['test_r2'])}")
 
 
 def score_charts():
