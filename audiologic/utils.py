@@ -1,4 +1,8 @@
 import whisper
+import io
+import librosa
+from pydub import AudioSegment
+from urllib.request import urlopen
 
 def score_acc(ytrue, ypred, print_confusion_matrix=False):
     '''
@@ -56,3 +60,24 @@ def transcribe_audio(audio_file, whisper_model='base', preloaded_model=None, eng
     result = whisper.decode(model, mel, options)
 
     return result
+
+
+def load_audio(file):
+    if file[-4:] not in ['.mp3', '.wav']:
+        wav = io.BytesIO()
+        with urlopen(file) as r:
+            r.seek = lambda *args: None  # allow pydub to call seek(0)
+            AudioSegment.from_file(r).export(wav, "wav")
+        wav.seek(0)
+    elif file[-4:] == '.mp3':
+        filepath = f'data/clips_45seconds/{file}'
+        wav = io.BytesIO()
+        AudioSegment.from_mp3(filepath).export(wav, "wav")
+        wav.seek(0)
+    elif file[-4:] == '.wav':
+        wav = f'data/wav45/{file}'
+    else:
+        print('Check file type')
+
+    y, sr = librosa.load(wav)
+    return y, sr
