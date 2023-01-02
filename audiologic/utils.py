@@ -6,6 +6,8 @@ from pydub import AudioSegment
 from urllib.request import urlopen
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split, cross_validate, GridSearchCV
+from sklearn.feature_selection import SelectFromModel
+
 
 def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
     '''
@@ -29,7 +31,7 @@ def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
             scores['mae'] = mae
         elif met == 'rmse':
             rmse = mean_squared_error(ytrue, ypred)**0.5
-            print(f"Mean Absolute Error = {rmse}")
+            print(f"Root Mean Squared Error = {rmse}")
             scores['rmse'] = rmse
         elif met == 'r_squared':
             r2 = r2_score(ytrue, ypred)
@@ -61,8 +63,26 @@ def cv_test(model, data, labels, cv=5):
     print(f"R-Squared: {np.mean(crossval['test_r2'])}")
 
 
-def score_charts():
-    pass
+def feature_testing(model, xtrain, ytrain, xval, yval, thresholds=[0.01, 0.025]):
+    for thresh in thresholds:
+        predictor_cols = ['tempo', 'beat_length', 'beat_diff',
+                    'centroid', 'd_centroid', 'rolloff', 'd_rolloff', 'rolloff_mid',
+                    'd_rolloff_mid', 'contrast_0', 'd_contrast_0', 'contrast_1',
+                    'd_contrast_1', 'contrast_2', 'd_contrast_2', 'contrast_3',
+                    'd_contrast_3', 'contrast_4', 'd_contrast_4', 'contrast_5',
+                    'd_contrast_5', 'contrast_6', 'd_contrast_6', 'mfcc_0', 'd_mfcc_0',
+                    'mfcc_1', 'd_mfcc_1', 'mfcc_2', 'd_mfcc_2', 'mfcc_3', 'd_mfcc_3',
+                    'mfcc_4', 'd_mfcc_4', 'mfcc_5', 'd_mfcc_5', 'mfcc_6', 'd_mfcc_6',
+                    'mfcc_7', 'd_mfcc_7', 'mfcc_8', 'd_mfcc_8', 'mfcc_9', 'd_mfcc_9', 'rms', 'd_rms']
+        selector = SelectFromModel(estimator=model(), threshold=thresh).fit(xtrain, np.ravel(ytrain))
+        xtrain_trans = selector.transform(xtrain)
+        xval_trans = selector.transform(xval)
+        mask = selector.get_support()
+        cols = np.array(predictor_cols)[mask]
+        newmod = model().fit(xtrain_trans, np.ravel(ytrain))
+        predictions = newmod.predict(xval_trans)
+        print(f"--Thresh={thresh} --> Droppped columns = {list(set(predictor_cols) - set(cols))}")
+        scores = score_model(yval, predictions, ['mae'])
 
 
 def transcribe_audio(audio_file, whisper_model='base', preloaded_model=None, english_only=False):
