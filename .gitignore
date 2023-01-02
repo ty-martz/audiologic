@@ -134,3 +134,5 @@ data/clips_45sec.tar.gz
 .DS_Store
 testing.ipynb
 whisper_test.ipynb
+pypi.txt
+catboost_info
