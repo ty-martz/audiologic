@@ -1,3 +1,5 @@
+import pickle
+
 # class and functions
 # class = AudioModel
     # __init__
@@ -23,9 +25,9 @@ class AudioClassifier:
             self.model_type = 'prefit'
 
         if model_choice == 'audio':
-            pass
+            self.model = pickle.loads('models/rf_audio_model.pkl')
         elif model_choice == 'lyrics':
-            pass
+            self.model = pickle.loads('models/rf_lyric_model.pkl')
 
 
     def change_model(self, model_type: str):
