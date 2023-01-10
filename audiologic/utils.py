@@ -2,11 +2,12 @@ import whisper
 import io
 import librosa
 import numpy as np
+import pandas as pd
 from pydub import AudioSegment
 from urllib.request import urlopen
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split, cross_validate, GridSearchCV
 from sklearn.feature_selection import SelectFromModel
+from sklearn.preprocessing import MinMaxScaler
 
 
 def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
@@ -127,3 +128,74 @@ def load_audio(file):
 
     y, sr = librosa.load(wav)
     return y, sr
+
+
+def is_array(var):
+    if np.ndim(var) != 0:
+        return True
+    else:
+        # treat as single data point
+        return False
+
+
+def get_means(arr):
+    return [arr.mean(), np.diff(arr).mean()]
+
+
+def feature_pipeline(file):
+    # get features from audio data
+    features = {} # empty dict for storing features
+    audio, sample_rate = load_audio(file)
+
+    # beat_tempo, diff
+    tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+    features['tempo'] = tempo
+    features['beat_length'] = len(beat_frames)
+    features['beat_diff'] = np.mean([c-a for a, c in zip(beat_frames[:-1], beat_frames[1:])])
+    
+    # Spectral Centroid
+    cent = librosa.feature.spectral_centroid(y=audio, sr=sample_rate)
+    features['centroid'], features['d_centroid'] = [[x] for x in get_means(cent)]
+    
+    # Spectral Rolloff
+    rolloff = librosa.feature.spectral_rolloff(y=audio, sr=sample_rate, roll_percent=0.95)
+    features['rolloff'], features['d_rolloff'] = [[x] for x in get_means(rolloff)]
+    
+    rolloff_middle = librosa.feature.spectral_rolloff(y=audio, sr=sample_rate, roll_percent=0.5)
+    features['rolloff_mid'], features['d_rolloff_mid'] = [[x] for x in get_means(rolloff_middle)]
+    
+    # Spectral Contrast
+    S = np.abs(librosa.stft(y=audio))
+    contrast = librosa.feature.spectral_contrast(S=S, sr=sample_rate)
+    for i, cont in enumerate(contrast):
+        features[f"contrast_{i}"], features[f"d_contrast_{i}"] = [[x] for x in get_means(cont)]
+        
+    # MFCCs
+    mfccs = librosa.feature.mfcc(y=audio, sr=sample_rate, n_mfcc=10)
+    for i, mfcc in enumerate(mfccs):
+        features[f"mfcc_{i}"], features[f"d_mfcc_{i}"] = [[x] for x in get_means(mfcc)]
+    
+    # RMS
+    rms = librosa.feature.rms(y=audio)[0]
+    features['rms'], features['d_rms'] = [[x] for x in get_means(rms)]
+    
+    df = pd.DataFrame(features)
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(df)
+
+    return X
+
+
+def lyric_pipeline(data):
+    # get lyrics from audio file
+    model = whisper.load_model('base')
+
+    if is_array(data):
+        assert len(data) > 0, f"Length of array should be more than 0"
+        df = []
+        lyrics = [transcribe_audio(i, preloaded_model=model) for i in data]
+        df = [x.text for x in lyrics]
+        return df
+    else:
+        txt = transcribe_audio(data, preloaded_model=model)
+        return txt.text
