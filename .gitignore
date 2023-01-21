@@ -136,3 +136,6 @@ testing.ipynb
 whisper_test.ipynb
 pypi.txt
 catboost_info
+spotify_test.ipynb
+data/all_audio.csv
+data/img
