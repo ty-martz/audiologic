@@ -1,97 +1,99 @@
 import pickle
 import numpy as np
-from utils import *
-
-# class and functions
-# class = AudioModel
-    # __init__
-    # load_model
-    # fit
-    # predict
-    # tuning
-    # score
+import audiologic.utils as util
 
 
 class AudioClassifier:
 
-    def __init__(self, model_type='prefit', model_choice='audio'):
+    def __init__(self, model_choice='audio'):
 
-        self.model_type = model_type # prefit default for loading, "audio" to train on audio, "lyrics" to train on lyrics
-        if model_type == 'prefit':
-            self.model_choice = model_choice
-            if model_choice == 'audio':
-                self.model = pickle.loads('models/rf_audio_model.pkl')
-            elif model_choice == 'lyrics':
-                self.model = pickle.loads('models/rf_lyric_model.pkl')
-            elif model_choice == 'both':
-                self.model = pickle.loads('models/rf_audio_model.pkl')
-                self.model2 = pickle.loads('models/rf_lyric_model.pkl')
+        self.model_choice = model_choice
+
+        if model_choice == 'audio':
+            self.audio_model = pickle.loads(open('models/rf_audio_model.pkl', 'rb'))
+        elif model_choice == 'lyrics':
+            self.lyric_model = pickle.loads(open('models/rf_lyric_model.pkl', 'rb'))
+        elif model_choice == 'both':
+            self.audio_model = pickle.load(open('audiologic/models/rf_audio_model.pkl', 'rb'))
+            self.lyric_model = pickle.load(open('audiologic/models/rf_lyric_model.pkl', 'rb'))
+
+        self.audio_predictions = []
+        self.lyric_predictions = []
+
+        self.new_audio_features = []
+        self.new_lyrics = []
+
+
+    def get_last_prediction(self):
+        if self.model_choice == 'audio':
+            return self.audio_predictions[-1]
+        elif self.model_choice == 'lyrics':
+            return self.lyric_predictions[-1]
+        elif self.model_choice == 'both':
+            return (self.audio_predictions[-1], self.lyric_predictions[-1])
         else:
-            self.model = None
-        self.predictions = None
-        self.new_data = []
-
-
-    #def load_model(self, model_choice: str):
-    #    '''Load in an existing trained and tuned model'''
-    #    if self.model_type != 'prefit':
-    #        self.model_type = 'prefit'
-    #
-    #    if model_choice == 'audio':
-    #        self.model = pickle.loads('models/rf_audio_model.pkl')
-    #    elif model_choice == 'lyrics':
-    #        self.model = pickle.loads('models/rf_lyric_model.pkl')
-
-
-    def change_model(self, choice: str):
-        '''quickly change model after initializing the class'''
-        self.model_choice = choice
-        if choice == 'audio':
-            self.model = pickle.loads('models/rf_audio_model.pkl')
-        elif choice == 'lyrics':
-            self.model = pickle.loads('models/rf_lyric_model.pkl')
-        elif choice == 'both':
-            self.model = pickle.loads('models/rf_audio_model.pkl')
-            self.model2 = pickle.loads('models/rf_lyric_model.pkl')
-
-    
-    def fit_model(self, x, y, params):
-        '''Given training audio and labels, fit a new model'''
-        pass
+            raise AssertionError(f"model_choice must be (both, audio, lyrics), you chose {self.model_choice}")
 
 
     def refit_model(self, x, y):
         '''Update existing model with new data if enough new data available'''
-        assert len(self.new_data) >= 10
+        print('FUNCTION INCOMPLETE: Needs to be implemented')
+        assert len(self.new_audio_features) >= 10, f"More than 10 new samples are required to refit the model, only {len(self.new_audio_features)} have been predicted on"
         pass
 
 
     def tune_model(self, params):
         '''tune model with cross validation and scoring using an accuracy score'''
+        print('FUNCTION INCOMPLETE: Needs to be implemented')
         pass
 
 
-    def predict_model(self, data):
-        '''given audio data, make predictions'''
+    def audio_prediction_intervals(self, conf, new_val):
+        '''get prediction interval based on model type'''
+        trees = self.audio_model.estimators_
+        tree_preds = []
+        for m in trees:
+            pred = m.predict(new_val)
+            tree_preds.append(pred)
+        samp_mean = np.mean(tree_preds)
+        stdev = np.std(tree_preds)
+        lo = samp_mean - (conf * (stdev / np.sqrt(len(tree_preds))))
+        hi = samp_mean + (conf * (stdev / np.sqrt(len(tree_preds))))
+        
+        return (round(lo, 2), round(hi, 2))
+
+
+    def make_prediction(self, data, include_ci=True, confidence=0.95):
+        '''given single audio sample, make prediction on valence'''
         # load data in pipeline, predict in model
+        def audio_predict():
+            predictors = util.feature_pipeline(data)
+            self.audio_predictions.append(round(self.audio_model.predict(predictors)[0], 2))
+
+        def lyric_predict():
+            predictors = util.lyric_pipeline(data)
+            self.lyric_predictions.append(round(self.lyric_model.predict(predictors)[0], 2))
+
         if self.model_choice == 'audio':
-            predictors = feature_pipeline(data)
-            preds = self.model.predict(data)
+            audio_predict()
 
         elif self.model_choice == 'lyrics':
-            data = lyric_pipeline(data)
-            preds = self.model.predict(data)
+            lyric_predict()
 
         elif self.model_choice == 'both':
-            predictors = feature_pipeline(data)
-            self.model.predict(predictors)
-            predictors = lyric_pipeline(data)
-            preds = self.model2.predict(predictors)
+            audio_predict()
+            #lyric_predict()
         
         else:
             raise AssertionError(f"No model has been trained or chosen. Current model choice = {self.model_choice}")
-        
-        return preds
 
+        print('----')
+        if include_ci:
+            ci = self.audio_prediction_intervals(confidence, util.feature_pipeline(data))
+            print(f'Audio Valence = {self.audio_predictions[-1]} <> {100*confidence}% confidence interval of {ci[0]} - {ci[1]}')
+        else:
+            print(f'Audio Valence = {self.audio_predictions[-1]}')
+            #print(f'Lyrical Valence = {self.lyric_predictions[-1]}')
+        print('----')
 
 
