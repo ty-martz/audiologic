@@ -11,6 +11,10 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.feature_selection import SelectFromModel
 from sklearn.model_selection import cross_validate
 
+import os.path
+
+FIT_SCALER_PATH = os.path.join(os.path.dirname(__file__), 'models', 'pred_scaler.pkl')
+
 
 def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
     '''
@@ -208,7 +212,8 @@ def feature_pipeline(file):
     features['rms'], features['d_rms'] = [[x] for x in get_means(rms)]
     
     df = pd.DataFrame(features)
-    scaler = pickle.load(open('audiologic/models/pred_scaler.pkl', 'rb'))
+    with open(FIT_SCALER_PATH, 'rb') as scaler_file:
+        scaler = pickle.load(scaler_file)
     X = scaler.transform(df)
 
     return X

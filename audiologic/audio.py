@@ -2,6 +2,11 @@ import pickle
 import numpy as np
 import audiologic.utils as util
 
+import os.path
+
+AUDIO_MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'rf_audio_model.pkl')
+LYRIC_MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'rf_lyric_model.pkl')
+
 
 class AudioClassifier:
 
@@ -10,12 +15,16 @@ class AudioClassifier:
         self.model_choice = model_choice
 
         if model_choice == 'audio':
-            self.audio_model = pickle.loads(open('models/rf_audio_model.pkl', 'rb'))
+            with open(AUDIO_MODEL_PATH, 'rb') as aud_file:
+                self.audio_model = pickle.load(aud_file)
         elif model_choice == 'lyrics':
-            self.lyric_model = pickle.loads(open('models/rf_lyric_model.pkl', 'rb'))
+            with open(LYRIC_MODEL_PATH, 'rb') as lyr_file:
+                self.lyric_model = pickle.load(lyr_file)
         elif model_choice == 'both':
-            self.audio_model = pickle.load(open('audiologic/models/rf_audio_model.pkl', 'rb'))
-            self.lyric_model = pickle.load(open('audiologic/models/rf_lyric_model.pkl', 'rb'))
+            with open(AUDIO_MODEL_PATH, 'rb') as aud_file:
+                self.audio_model = pickle.load(aud_file)
+            with open(LYRIC_MODEL_PATH, 'rb') as lyr_file:
+                self.lyric_model = pickle.load(lyr_file)
 
         self.audio_predictions = []
         self.lyric_predictions = []
