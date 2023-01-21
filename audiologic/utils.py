@@ -1,13 +1,15 @@
 import whisper
 import io
 import librosa
+import torch
+import pickle
 import numpy as np
 import pandas as pd
 from pydub import AudioSegment
 from urllib.request import urlopen
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.feature_selection import SelectFromModel
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import cross_validate
 
 
 def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
@@ -130,6 +132,32 @@ def load_audio(file):
     return y, sr
 
 
+def get_mel_spectrogram(file):
+    y, sr = load_audio(file)
+    print(len(y))
+    print(sr)
+    print('')
+
+    # Compute mel spectrogram
+    mel_spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, n_fft=2048, hop_length=512)
+
+    # Normalize the spectrogram
+    mel_spectrogram = librosa.power_to_db(mel_spectrogram)
+    mel_spectrogram = librosa.util.fix_length(mel_spectrogram, size=64)
+    mel_spectrogram = (mel_spectrogram + 100) / 100
+
+    # Convert to PyTorch tensor
+    mel_spectrogram = torch.from_numpy(mel_spectrogram).float()
+
+    # Add a singleton dimension at the end to make the tensor 4D
+    mel_spectrogram = mel_spectrogram.unsqueeze(0)
+
+    # Add a singleton dimension at the beginning to make the tensor 4D
+    mel_spectrogram = mel_spectrogram.unsqueeze(0)
+
+    return mel_spectrogram
+
+
 def is_array(var):
     if np.ndim(var) != 0:
         return True
@@ -148,7 +176,7 @@ def feature_pipeline(file):
     audio, sample_rate = load_audio(file)
 
     # beat_tempo, diff
-    tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+    tempo, beat_frames = librosa.beat.beat_track(y=audio, sr=sample_rate)
     features['tempo'] = tempo
     features['beat_length'] = len(beat_frames)
     features['beat_diff'] = np.mean([c-a for a, c in zip(beat_frames[:-1], beat_frames[1:])])
@@ -180,8 +208,8 @@ def feature_pipeline(file):
     features['rms'], features['d_rms'] = [[x] for x in get_means(rms)]
     
     df = pd.DataFrame(features)
-    scaler = MinMaxScaler()
-    X = scaler.fit_transform(df)
+    scaler = pickle.load(open('audiologic/models/pred_scaler.pkl', 'rb'))
+    X = scaler.transform(df)
 
     return X
 
