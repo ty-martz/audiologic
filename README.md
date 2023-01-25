@@ -1,5 +1,4 @@
-# audiologic
-![audiologic logo](static/audiologic_logo.png)
+![audiologic logo](static/audiologic_Logo_rec.png)
 ----
 
 Python Module to process and predict on music attributes
