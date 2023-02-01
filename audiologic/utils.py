@@ -1,3 +1,8 @@
+########
+# Functions supporting the audio module in audiologic
+########
+
+# IMPORTS #
 import whisper
 import io
 import librosa
@@ -10,17 +15,18 @@ from urllib.request import urlopen
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.feature_selection import SelectFromModel
 from sklearn.model_selection import cross_validate
-
 import os.path
 
+# MODEL PATH VARIABLES #
 FIT_SCALER_PATH = os.path.join(os.path.dirname(__file__), 'models', 'pred_scaler.pkl')
+TOKENIZER_PATH = os.path.join(os.path.dirname(__file__), 'models', 'tfidf_model.pkl')
 
 
 def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
     '''
     Parameters:
-        ytrue (): true class value
-        ypred (): predicted class values
+        ytrue (array-like): true class value
+        ypred (array-like): predicted class values
         metrics (str or list): metrics used to score model. Choose from MAE, RMSE, and R^2
     Return
         score
@@ -52,9 +58,11 @@ def score_model(ytrue, ypred, metrics=['mae', 'rmse', 'r_squared']):
 
 def cv_test(model, data, labels, cv=5):
     '''
+    Runs cross validation testing of a given model
     Parameters
-        data ():
-        labels ():
+        model : model class with which to test
+        data (array-like): predictor variables
+        labels (array-like): target variables
         cv (int): number of splits in the cross validation testing
     Returns
         Summary of models
@@ -71,6 +79,9 @@ def cv_test(model, data, labels, cv=5):
 
 
 def feature_testing(model, xtrain, ytrain, xval, yval, thresholds=[0.01, 0.025]):
+    '''
+    custom function used in model training
+    '''
     for thresh in thresholds:
         predictor_cols = ['tempo', 'beat_length', 'beat_diff',
                     'centroid', 'd_centroid', 'rolloff', 'd_rolloff', 'rolloff_mid',
@@ -116,6 +127,13 @@ def transcribe_audio(audio_file, whisper_model='base', preloaded_model=None, eng
 
 
 def load_audio(file):
+    '''
+    Loads audio files in 3 potential forms: .mp3, .wav, or url
+    Parameters:
+        file : path (mp3 or wav) or url to an audio file
+    Returns:
+        audio and sampling rate
+    '''
     if file[-4:] not in ['.mp3', '.wav']:
         wav = io.BytesIO()
         with urlopen(file) as r:
@@ -137,10 +155,10 @@ def load_audio(file):
 
 
 def get_mel_spectrogram(file):
+    '''
+    Given a file path or url, returns the mel spectrogram data
+    '''
     y, sr = load_audio(file)
-    print(len(y))
-    print(sr)
-    print('')
 
     # Compute mel spectrogram
     mel_spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, n_fft=2048, hop_length=512)
@@ -163,6 +181,7 @@ def get_mel_spectrogram(file):
 
 
 def is_array(var):
+    '''checks if given variable is an array'''
     if np.ndim(var) != 0:
         return True
     else:
@@ -171,10 +190,14 @@ def is_array(var):
 
 
 def get_means(arr):
+    '''returns the mean of an array and the mean of differences'''
     return [arr.mean(), np.diff(arr).mean()]
 
 
 def feature_pipeline(file):
+    '''
+    given an audio file path, returns numerous features of the audio file
+    '''
     # get features from audio data
     features = {} # empty dict for storing features
     audio, sample_rate = load_audio(file)
@@ -220,15 +243,22 @@ def feature_pipeline(file):
 
 
 def lyric_pipeline(data):
-    # get lyrics from audio file
+    '''
+    given an audio file, returns the tokenized lyrics of the sample
+    '''
     model = whisper.load_model('base')
+    with open(TOKENIZER_PATH, 'rb') as tok:
+        tokenizer = pickle.load(tok)
 
     if is_array(data):
         assert len(data) > 0, f"Length of array should be more than 0"
         df = []
         lyrics = [transcribe_audio(i, preloaded_model=model) for i in data]
-        df = [x.text for x in lyrics]
+        df = [tokenizer.transform([x.text])[:1062] for x in lyrics]
         return df
     else:
         txt = transcribe_audio(data, preloaded_model=model)
-        return txt.text
+        new_x = tokenizer.transform([txt.text]).toarray()
+        return new_x[0][:1062].reshape(1, -1)
+
+
