@@ -1,6 +1,6 @@
 [project]
 name = "audiologic"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python utilities to process and predict on audio attributes"
 authors = [
     {name = "Ty Martz", email="jacksontmartz@gmail.com"}
