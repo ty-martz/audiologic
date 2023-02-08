@@ -139,3 +139,9 @@ catboost_info
 spotify_test.ipynb
 data/all_audio.csv
 data/img
+
+# working notebooks
+vision_models.ipynb
+nnmod.ipynb
+feats.ipynb
+eda.ipynb
